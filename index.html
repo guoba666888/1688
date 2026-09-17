@@ -1,0 +1,2721 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="creative-medium" content="interactive-prototype" />
+<title>剧集模拟器</title>
+
+<!-- PWA / 移动端适配 -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="剧集模拟器" />
+<meta name="theme-color" content="#ffffff" />
+<meta name="format-detection" content="telephone=no" />
+<meta name="msapplication-tap-highlight" content="no" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23c8102e'/><text x='50' y='66' font-size='48' text-anchor='middle' fill='white' font-family='PingFang SC, Helvetica, sans-serif' font-weight='bold'>剧</text></svg>" />
+
+<script src="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script src="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<style>
+  :root {
+    --primary: #c8102e;
+    --primary-dark: #a00d25;
+    --primary-light: #ff3b4f;
+    --bg: #f2f2f4;
+    --card-bg: #ffffff;
+    --text-primary: #1a1a1a;
+    --text-secondary: #666666;
+    --text-tertiary: #999999;
+    --border: #ebebeb;
+    --border-light: #f0f0f0;
+    --radius-sm: 6px;
+    --nav-height: 48px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --touch-target: 44px;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+  html, body { margin: 0; padding: 0; height: 100%; -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Helvetica, "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 0;
+    overscroll-behavior-y: contain;
+  }
+
+  .page-wrap {
+    width: 100%;
+    max-width: 540px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .app {
+    width: 100%;
+    background: var(--card-bg);
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ========== 顶部导航栏 ========== */
+  .nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: calc(var(--nav-height) + var(--safe-top));
+    padding-top: var(--safe-top);
+    padding-left: 16px;
+    padding-right: 16px;
+    background: #ffffff;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 0.5px solid var(--border-light);
+  }
+  .nav-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary);
+    margin: 0;
+  }
+  .nav-menu-btn {
+    background: none;
+    border: none;
+    padding: 10px;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    cursor: pointer;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+  }
+  .nav-menu-btn:active { background: #f0f0f0; }
+
+  /* ========== 菜单面板 ========== */
+  .menu-panel {
+    position: fixed;
+    top: calc(var(--nav-height) + var(--safe-top) + 6px);
+    right: calc(50% - 260px + 12px);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 6px 28px rgba(0,0,0,0.15);
+    padding: 6px 0;
+    min-width: 180px;
+    z-index: 150;
+    overflow: hidden;
+  }
+  .menu-item {
+    padding: 12px 16px;
+    font-size: 15px;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: var(--touch-target);
+  }
+  .menu-item:active { background: #f5f5f5; }
+  .menu-item.danger { color: #ff3b30; }
+
+  /* ========== 视频播放区域 ========== */
+  .video-section {
+    position: relative;
+    width: 100%;
+    background: #000;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    user-select: none;
+  }
+  .video-viewport {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    cursor: grab;
+  }
+  .video-viewport.dragging { cursor: grabbing; }
+  .video-scale-wrap {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    transform-origin: center center;
+    will-change: transform;
+  }
+  .video-scale-wrap video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    pointer-events: none;
+  }
+
+  /* 缩放控制按钮 */
+  .zoom-controls {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 6;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .video-section:hover .zoom-controls { opacity: 1; }
+  .zoom-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.55);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+    transition: background 0.15s;
+  }
+  .zoom-btn:active { background: rgba(0,0,0,0.8); }
+  .zoom-reset-btn {
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  /* 视频角标 */
+  .video-title-badge {
+    position: absolute;
+    top: 12px;
+    left: 14px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 5;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+    pointer-events: none;
+    max-width: 65%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .video-import-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
+    gap: 10px;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  /* 加载动画 */
+  .video-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 6;
+    pointer-events: none;
+  }
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(255,255,255,0.25);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 编辑模式视频上传遮罩 */
+  .edit-mode .video-import-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.2s;
+    cursor: pointer;
+  }
+  .edit-mode .video-section:hover .video-import-overlay { opacity: 1; }
+  .video-import-btn {
+    padding: 10px 20px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    pointer-events: none;
+  }
+
+  /* ========== 自定义播放控制栏 ========== */
+  .video-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.75));
+    padding: 28px 14px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 4;
+    transition: opacity 0.3s;
+  }
+  .video-controls.hidden { opacity: 0; pointer-events: none; }
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 3px;
+    position: relative;
+    cursor: pointer;
+    z-index: 5;
+    padding: 6px 0;
+    margin: -6px 0;
+  }
+  .progress-bar:active .progress-fill::after { transform: translateY(-50%) scale(1.4); }
+  .progress-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 2px;
+    position: relative;
+  }
+  .progress-fill::after {
+    content: "";
+    position: absolute;
+    right: -5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 0 3px rgba(0,0,0,0.3);
+  }
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: white;
+    font-size: 12px;
+    z-index: 5;
+    position: relative;
+  }
+  .control-left, .control-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ctrl-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 6px;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  .ctrl-btn:active { background: rgba(255,255,255,0.15); }
+  .quality-tag {
+    font-size: 11px;
+    padding: 2px 6px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .select-ep-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+    min-height: 32px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+    color: white;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+  }
+
+  /* ========== 编辑模式高亮 ========== */
+  .editable { transition: outline 0.15s; cursor: default; }
+  .edit-mode .editable:hover {
+    outline: 2px dashed var(--primary);
+    outline-offset: 2px;
+    cursor: text;
+  }
+  .editable[contenteditable="true"]:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    background: rgba(200, 16, 46, 0.06);
+  }
+
+  /* ========== 剧集信息区 ========== */
+  .info-section {
+    display: flex;
+    gap: 14px;
+    padding: 16px;
+    background: var(--card-bg);
+  }
+  .cover-wrapper {
+    flex-shrink: 0;
+    width: 100px;
+    position: relative;
+  }
+  .cover-img {
+    width: 100px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    display: block;
+    background: #e8e8e8;
+    cursor: zoom-in;
+  }
+  .edit-mode .cover-wrapper { cursor: pointer; }
+  .edit-mode .cover-wrapper::after {
+    content: "更换封面";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .edit-mode .cover-wrapper:hover::after { opacity: 1; }
+
+  .info-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .drama-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.3;
+  }
+  .drama-rating {
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .rating-star { color: var(--primary); font-weight: 700; }
+  .drama-meta {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 8px;
+    align-items: center;
+  }
+  .ep-count-meta {
+    color: var(--text-tertiary);
+  }
+  .ep-count-meta.editable {
+    border-bottom: 1px dashed var(--text-tertiary);
+    cursor: pointer;
+  }
+  .drama-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 4px 0 0 0;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .drama-desc.expanded {
+    -webkit-line-clamp: unset;
+    display: block;
+  }
+
+  /* ========== 操作栏 ========== */
+  .action-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px 14px;
+    border-bottom: 0.5px solid var(--border-light);
+  }
+  .play-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 22px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    min-width: 88px;
+  }
+  .play-btn:active { background: var(--primary-dark); transform: scale(0.98); }
+  .action-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    min-width: 46px;
+    min-height: var(--touch-target);
+  }
+  .action-chip:active { background: #f0f0f0; }
+  .action-chip:hover { background: #f5f5f5; }
+  .action-chip .chip-num {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  /* ========== 播放源 ========== */
+  .source-section {
+    padding: 16px;
+    border-bottom: 0.5px solid var(--border-light);
+  }
+  .section-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 12px 0;
+  }
+  .source-tabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .source-tab {
+    padding: 7px 16px;
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: #fafafa;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .source-tab.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+    font-weight: 500;
+  }
+  .edit-mode .source-tab .del-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ff3b30;
+    color: white;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    line-height: 1;
+  }
+  .add-source-btn {
+    padding: 7px 12px;
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+    border: 1px dashed #bbb;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+  }
+
+  /* ========== 剧集列表 ========== */
+  .episodes-section {
+    padding: 16px;
+    position: relative;
+  }
+  .episodes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .episodes-title-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .episodes-title-wrap h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .episodes-count {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-weight: 400;
+  }
+  .collapse-btn {
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px 8px;
+    min-height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .episodes-grid-wrap {
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+  }
+  .episodes-grid-wrap.collapsed { max-height: 0 !important; }
+
+  .episodes-scroll {
+    max-height: 320px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    margin-right: -4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,0,0,0.15) transparent;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .episodes-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+  .episodes-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .episodes-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.18);
+    border-radius: 3px;
+  }
+  .episodes-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(0,0,0,0.3);
+  }
+
+  .episodes-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 9px;
+    padding-right: 4px;
+  }
+  .episode-btn {
+    padding: 10px 0;
+    font-size: 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: #fafafa;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .episode-btn:active {
+    background: #eaeaea;
+    transform: scale(0.97);
+    transition: transform 0.08s;
+  }
+  .episode-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+    font-weight: 500;
+  }
+  .episode-btn.has-video::after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #34c759;
+  }
+  .episode-btn .ep-del-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #ff3b30;
+    color: white;
+    font-size: 12px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    line-height: 1;
+    z-index: 2;
+  }
+  .edit-mode .episode-btn .ep-del-btn { display: flex; }
+  .add-episode-btn {
+    padding: 10px 0;
+    font-size: 14px;
+    border-radius: var(--radius-sm);
+    border: 1px dashed #ccc;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+  }
+  .add-episode-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  /* 集数快速设置 */
+  .ep-count-setting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .ep-count-input {
+    width: 56px;
+    padding: 5px 8px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-align: center;
+    outline: none;
+    background: #fafafa;
+    color: var(--text-primary);
+    font-family: inherit;
+  }
+  .ep-count-input:focus { border-color: var(--primary); background: white; }
+  .ep-count-apply-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+    border: 1px solid var(--primary);
+    background: white;
+    color: var(--primary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .ep-count-apply-btn:hover { background: var(--primary); color: white; }
+
+  /* 猜你喜欢 */
+  .guess-like {
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 0.5px solid var(--border-light);
+  }
+  .guess-like-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 12px 0;
+  }
+  .guess-like-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .guess-like-item {
+    cursor: pointer;
+    position: relative;
+  }
+  .guess-like-item .gl-cover {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #eee;
+    display: block;
+  }
+  .guess-like-item .gl-name {
+    font-size: 12px;
+    color: var(--text-primary);
+    margin-top: 6px;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .edit-mode .guess-like-item::after {
+    content: "更换图片";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    aspect-ratio: 2 / 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    font-size: 11px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .edit-mode .guess-like-item:hover::after { opacity: 1; }
+
+  /* ========== 图片查看器（放大查看 + 缩放拖动） ========== */
+  .image-viewer {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    z-index: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+  .image-viewer-viewport {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    cursor: grab;
+  }
+  .image-viewer-viewport.dragging { cursor: grabbing; }
+  .image-viewer-scale {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    max-width: 90%;
+    max-height: 90%;
+    transform-origin: center center;
+    will-change: transform;
+  }
+  .image-viewer-scale img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    display: block;
+    pointer-events: none;
+  }
+  .image-viewer-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 601;
+    backdrop-filter: blur(6px);
+  }
+  .image-viewer-zoom {
+    position: absolute;
+    right: 20px;
+    bottom: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 601;
+  }
+  .image-viewer-zoom .zoom-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(6px);
+  }
+  .image-viewer-zoom .zoom-btn:hover { background: rgba(255,255,255,0.25); }
+
+  /* ========== 编辑模式开关 ========== */
+  .edit-toggle {
+    position: fixed;
+    bottom: calc(24px + var(--safe-bottom));
+    right: 24px;
+    z-index: 200;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 16px rgba(200, 16, 46, 0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .edit-toggle:active { transform: scale(0.92); }
+  .edit-toggle.active {
+    background: #222;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+
+  /* ========== Toast ========== */
+  .toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.75);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    z-index: 500;
+    pointer-events: none;
+    animation: toastIn 0.2s ease;
+  }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translate(-50%, -40%); }
+    to { opacity: 1; transform: translate(-50%, -50%); }
+  }
+
+  /* ========== 确认弹窗 ========== */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 400;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal-box {
+    background: white;
+    border-radius: 14px;
+    padding: 20px;
+    width: 280px;
+    max-width: 80%;
+    text-align: center;
+    animation: modalIn 0.2s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .modal-title { font-size: 16px; font-weight: 600; margin: 0 0 8px 0; color: var(--text-primary); }
+  .modal-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0 0 18px 0;
+    line-height: 1.5;
+  }
+  .modal-actions { display: flex; gap: 10px; justify-content: center; }
+  .modal-btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    flex: 1;
+  }
+  .modal-btn:active { opacity: 0.85; }
+  .modal-btn.cancel { background: #f0f0f0; color: var(--text-secondary); }
+  .modal-btn.danger { background: var(--primary); color: white; }
+
+  /* 编辑模式提示条 */
+  .edit-banner {
+    background: #fff3cd;
+    color: #856404;
+    padding: 6px 16px;
+    font-size: 12px;
+    text-align: center;
+    border-bottom: 1px solid #ffeeba;
+  }
+  .edit-banner strong { font-weight: 600; }
+
+  /* 会员状态显示 */
+  .vip-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    min-height: 30px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #f5d78e, #e0a854);
+    color: #6b4a12;
+    cursor: pointer;
+  }
+  .vip-badge.inactive {
+    background: #f0f0f0;
+    color: #999;
+    font-weight: 500;
+  }
+  .vip-badge .crown {
+    font-size: 14px;
+  }
+
+  .menu-vip-header {
+    padding: 12px 16px 10px;
+    border-bottom: 0.5px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+  .menu-vip-header .label {
+    color: var(--text-secondary);
+  }
+  .menu-vip-header .status {
+    color: #e0a854;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .menu-vip-header .status.inactive {
+    color: var(--text-tertiary);
+    font-weight: 500;
+  }
+
+  .vip-modal-input {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    text-align: center;
+    outline: none;
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+    font-family: "Courier New", monospace;
+    text-transform: uppercase;
+  }
+  .vip-modal-input:focus { border-color: #e0a854; }
+
+  .vip-hint {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    text-align: center;
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  .vip-status-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 0.5px solid #f0f0f0;
+    font-size: 14px;
+  }
+  .vip-status-row:last-child { border-bottom: none; }
+  .vip-status-row .label {
+    color: var(--text-secondary);
+  }
+  .vip-status-row .value {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .vip-status-row .value.vip {
+    color: #e0a854;
+    font-weight: 600;
+  }
+
+  .hidden-input { display: none; }
+
+  /* ========== 响应式 ========== */
+  /* 桌面/大屏 */
+  @media (min-width: 840px) {
+    body { padding: 30px 20px; align-items: flex-start; }
+    .page-wrap { max-width: 560px; }
+    .app { box-shadow: 0 8px 30px rgba(0,0,0,0.08); min-height: auto; }
+    .edit-toggle { bottom: 30px; right: calc(50% - 280px - 80px); }
+    .menu-panel { right: calc(50% - 280px + 12px); }
+  }
+
+  /* 平板 */
+  @media (min-width: 600px) and (max-width: 839px) {
+    body { padding: 20px; align-items: flex-start; }
+    .page-wrap { max-width: 640px; }
+    .app { box-shadow: 0 6px 24px rgba(0,0,0,0.08); min-height: auto; }
+    .episodes-grid { grid-template-columns: repeat(5, 1fr); gap: 10px; }
+    .guess-like-list { grid-template-columns: repeat(4, 1fr); }
+    .edit-toggle { bottom: calc(24px + var(--safe-bottom)); right: calc(50% - 320px - 70px); }
+    .menu-panel { right: calc(50% - 320px + 12px); }
+    .episodes-scroll { max-height: 380px; }
+  }
+
+  /* 平板大屏 / 横屏 */
+  @media (min-width: 900px) and (max-width: 1199px) {
+    .page-wrap { max-width: 720px; }
+    .episodes-grid { grid-template-columns: repeat(6, 1fr); gap: 10px; }
+    .guess-like-list { grid-template-columns: repeat(4, 1fr); }
+    .edit-toggle { right: calc(50% - 360px - 70px); }
+    .menu-panel { right: calc(50% - 360px + 12px); }
+    .episodes-scroll { max-height: 420px; }
+  }
+
+  /* 移动端 */
+  @media (max-width: 599px) {
+    body { padding: 0; background: white; display: block; }
+    .page-wrap { max-width: 100%; }
+    .app { box-shadow: none; min-height: 100vh; min-height: 100dvh; }
+    .nav-bar {
+      padding-left: calc(14px + var(--safe-left));
+      padding-right: calc(14px + var(--safe-right));
+    }
+    .menu-panel {
+      top: auto;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      min-width: auto;
+      border-radius: 16px 16px 0 0;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+      padding: 6px 0 calc(12px + var(--safe-bottom));
+      animation: slideUp 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .edit-toggle {
+      bottom: calc(18px + var(--safe-bottom));
+      right: 18px;
+      width: 48px;
+      height: 48px;
+      font-size: 20px;
+    }
+    .episodes-scroll { max-height: 300px; }
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  /* 小屏手机 */
+  @media (max-width: 360px) {
+    .info-section { padding: 12px; gap: 12px; }
+    .cover-wrapper { width: 86px; }
+    .cover-img { width: 86px; height: 120px; }
+    .drama-title { font-size: 17px; }
+    .drama-meta { font-size: 12px; }
+    .action-bar { padding: 0 12px 12px; gap: 2px; }
+    .play-btn { padding: 8px 16px; font-size: 13px; min-width: 72px; }
+    .action-chip { padding: 6px 6px; font-size: 10px; min-width: 38px; }
+    .action-chip .chip-num { font-size: 12px; }
+    .source-section { padding: 14px 12px; }
+    .episodes-section { padding: 14px 12px; }
+    .episodes-grid { gap: 7px; }
+    .episode-btn { padding: 10px 0; font-size: 13px; }
+    .nav-title { font-size: 17px; }
+    .vip-badge { font-size: 11px; padding: 4px 10px; }
+  }
+
+  /* 横屏手机 */
+  @media (max-height: 500px) and (orientation: landscape) {
+    .video-section { aspect-ratio: auto; height: 100vh; height: 100dvh; }
+    .info-section, .action-bar, .source-section, .episodes-section, .guess-like {
+      padding-left: calc(20px + var(--safe-left));
+      padding-right: calc(20px + var(--safe-right));
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ========== IndexedDB ==========
+const DB_NAME = "DramaSimulatorDB";
+const DB_VERSION = 1;
+const STORE_VIDEOS = "videos";
+const STORE_IMAGES = "images";
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_VIDEOS)) {
+        db.createObjectStore(STORE_VIDEOS, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(STORE_IMAGES)) {
+        db.createObjectStore(STORE_IMAGES, { keyPath: "id" });
+      }
+    };
+  });
+}
+async function saveBlob(store, id, blob) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    tx.objectStore(store).put({ id, blob, t: Date.now() });
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+async function getBlob(store, id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readonly");
+    const req = tx.objectStore(store).get(id);
+    req.onsuccess = () => { db.close(); resolve(req.result?.blob || null); };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+async function delBlob(store, id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    tx.objectStore(store).delete(id);
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+// ========== 默认数据 ==========
+const DEFAULT_COVER = "https://lf3-static.bytednsdoc.com/obj/eden-cn/ptlz_zlp/ljhwZthlaukjlkulzlp/drama-cover-default.jpg";
+const DEFAULT_VIDEO_SRC = "";
+
+const defaultState = {
+  channelTitle: "热播剧场",
+  dramaTitle: "兰香如故",
+  rating: "9.0",
+  year: "2026",
+  genre: "剧情",
+  description: "暂无介绍",
+  likeCount: "2.8k",
+  commentCount: "3.7k",
+  sources: [
+    { id: "s1", name: "蓝光4K", active: true },
+    { id: "s2", name: "高清1080p", active: false }
+  ],
+  episodes: Array.from({ length: 12 }, (_, i) => ({
+    id: `ep${i + 1}`,
+    label: `${i + 1}集`,
+    videoId: null,
+    progress: 0
+  })),
+  currentEpisodeIndex: 0,
+  coverImage: DEFAULT_COVER,
+  episodesCollapsed: false,
+  guessLikes: [
+    { id: "g1", title: "推荐剧集1", imageId: null },
+    { id: "g2", title: "推荐剧集2", imageId: null },
+    { id: "g3", title: "推荐剧集3", imageId: null }
+  ]
+};
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem("drama-simulator-state");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...defaultState, ...parsed };
+    }
+  } catch (e) { console.warn(e); }
+  return { ...defaultState };
+}
+function saveState(state) {
+  try {
+    localStorage.setItem("drama-simulator-state", JSON.stringify(state));
+  } catch (e) {}
+}
+
+// ========== 会员 / API ==========
+const VIP_FREE_EPISODES = 3;
+const DEFAULT_API_BASE = "/api";
+
+// 生成UUID
+function genUUID() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    const v = c === "x" ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+function getDeviceId() {
+  let id = localStorage.getItem("drama-device-id");
+  if (!id) {
+    id = genUUID();
+    localStorage.setItem("drama-device-id", id);
+  }
+  return id;
+}
+function getApiBase() {
+  return localStorage.getItem("drama-api-base") || DEFAULT_API_BASE;
+}
+function saveApiBase(url) {
+  if (url) localStorage.setItem("drama-api-base", url);
+  else localStorage.removeItem("drama-api-base");
+}
+
+// API 调用
+async function apiStatus(deviceId) {
+  const res = await fetch(`${getApiBase()}/status?deviceId=${encodeURIComponent(deviceId)}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+async function apiActivate(deviceId, code) {
+  const res = await fetch(`${getApiBase()}/activate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, deviceId })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function getDaysLeft(expireAt) {
+  if (!expireAt) return 0;
+  const diff = Number(expireAt) - Date.now();
+  if (diff <= 0) return 0;
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+function formatDate(ts) {
+  if (!ts) return "-";
+  const d = new Date(Number(ts));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// ========== 图标 ==========
+const Icon = {
+  Menu: () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
+    </svg>
+  ),
+  Play: () => <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>,
+  PlayBig: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>,
+  Pause: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+    </svg>
+  ),
+  Share: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+    </svg>
+  ),
+  Comment: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  ),
+  List: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+      <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+    </svg>
+  ),
+  Like: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>
+  ),
+  Edit: () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>
+  ),
+  Check: () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  ),
+  Plus: () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  ),
+  Upload: () => (
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+  ),
+  PlatformPlay: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+    </svg>
+  ),
+  Fullscreen: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+    </svg>
+  ),
+  Reset: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+    </svg>
+  ),
+  Export: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+  ),
+  ChevronDown: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  ),
+  ChevronUp: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="18 15 12 9 6 15"/>
+    </svg>
+  ),
+  Crown: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/>
+    </svg>
+  ),
+  Close: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  ),
+  ZoomIn: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+    </svg>
+  ),
+  ZoomOut: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>
+    </svg>
+  )
+};
+
+// ========== 可缩放/可拖动视图 Hook ==========
+function useZoomPan(minScale = 0.5, maxScale = 3) {
+  const [scale, setScale] = useState(1);
+  const [tx, setTx] = useState(0);
+  const [ty, setTy] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
+  const lastTap = useRef(0);
+
+  const zoomIn = useCallback(() => {
+    setScale(s => Math.min(maxScale, +(s * 1.25).toFixed(2)));
+  }, [maxScale]);
+
+  const zoomOut = useCallback(() => {
+    setScale(s => {
+      const ns = Math.max(minScale, +(s / 1.25).toFixed(2));
+      if (ns === 1) { setTx(0); setTy(0); }
+      return ns;
+    });
+  }, [minScale]);
+
+  const resetZoom = useCallback(() => {
+    setScale(1);
+    setTx(0);
+    setTy(0);
+  }, []);
+
+  // 滚轮缩放
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setScale(s => {
+      const ns = Math.max(minScale, Math.min(maxScale, +(s * delta).toFixed(2)));
+      if (ns === 1) { setTx(0); setTy(0); }
+      return ns;
+    });
+  }, [minScale, maxScale]);
+
+  // 鼠标/触摸拖动
+  const handleDown = useCallback((e) => {
+    if (scale <= 1.01) return;
+    const point = e.touches ? e.touches[0] : e;
+    dragStart.current = { x: point.clientX, y: point.clientY, tx, ty };
+    setDragging(true);
+  }, [scale, tx, ty]);
+
+  const handleMove = useCallback((e) => {
+    if (!dragging) return;
+    const point = e.touches ? e.touches[0] : e;
+    const dx = point.clientX - dragStart.current.x;
+    const dy = point.clientY - dragStart.current.y;
+    setTx(dragStart.current.tx + dx);
+    setTy(dragStart.current.ty + dy);
+  }, [dragging]);
+
+  const handleUp = useCallback(() => { setDragging(false); }, []);
+
+  // 双击放大/还原
+  const handleDoubleClick = useCallback((e) => {
+    if (scale > 1.1) {
+      resetZoom();
+    } else {
+      setScale(2);
+    }
+  }, [scale, resetZoom]);
+
+  // 触摸双击检测
+  const handleTouchStart = useCallback((e) => {
+    const now = Date.now();
+    if (now - lastTap.current < 300) {
+      e.preventDefault();
+      handleDoubleClick(e);
+    }
+    lastTap.current = now;
+    handleDown(e);
+  }, [handleDown, handleDoubleClick]);
+
+  const transform = `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(${scale})`;
+
+  return {
+    scale, tx, ty, dragging, transform,
+    zoomIn, zoomOut, resetZoom,
+    handleWheel, handleDown, handleMove, handleUp,
+    handleDoubleClick, handleTouchStart
+  };
+}
+
+// ========== 可编辑文本 ==========
+function EditableText({ value, onChange, className, tag: Tag = "span", placeholder = "", multiline = false }) {
+  const ref = useRef(null);
+  const handleBlur = () => {
+    if (ref.current) {
+      const newVal = ref.current.innerText.trim();
+      if (newVal !== value) onChange(newVal);
+    }
+  };
+  const handleKeyDown = (e) => {
+    if (!multiline && e.key === "Enter") { e.preventDefault(); ref.current.blur(); }
+  };
+  return (
+    <Tag
+      ref={ref}
+      className={`editable ${className || ""}`}
+      contentEditable={false}
+      suppressContentEditableWarning={true}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      data-placeholder={placeholder}
+    >
+      {value || placeholder}
+    </Tag>
+  );
+}
+
+// ========== 图片查看器（全屏缩放） ==========
+function ImageViewer({ src, onClose }) {
+  const vpRef = useRef(null);
+  const zoom = useZoomPan(0.5, 4);
+
+  useEffect(() => {
+    const el = vpRef.current;
+    if (!el) return;
+    const onWheel = (e) => zoom.handleWheel(e);
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [zoom]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "+" || e.key === "=") zoom.zoomIn();
+      if (e.key === "-") zoom.zoomOut();
+      if (e.key === "0") zoom.resetZoom();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, zoom]);
+
+  return (
+    <div className="image-viewer" onClick={onClose}>
+      <button className="image-viewer-close" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+        <Icon.Close />
+      </button>
+      <div
+        ref={vpRef}
+        className={`image-viewer-viewport ${zoom.dragging ? "dragging" : ""}`}
+        onMouseDown={(e) => { e.stopPropagation(); zoom.handleDown(e); }}
+        onMouseMove={(e) => { e.stopPropagation(); zoom.handleMove(e); }}
+        onMouseUp={(e) => { e.stopPropagation(); zoom.handleUp(e); }}
+        onMouseLeave={(e) => { e.stopPropagation(); zoom.handleUp(e); }}
+        onTouchStart={(e) => { e.stopPropagation(); zoom.handleTouchStart(e); }}
+        onTouchMove={(e) => { e.stopPropagation(); zoom.handleMove(e); }}
+        onTouchEnd={(e) => { e.stopPropagation(); zoom.handleUp(e); }}
+        onDoubleClick={(e) => { e.stopPropagation(); zoom.handleDoubleClick(e); }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="image-viewer-scale" style={{ transform: zoom.transform }}>
+          <img src={src} alt="" draggable={false} />
+        </div>
+      </div>
+      <div className="image-viewer-zoom">
+        <button className="zoom-btn" onClick={(e) => { e.stopPropagation(); zoom.zoomIn(); }} title="放大">
+          <Icon.ZoomIn />
+        </button>
+        <button className="zoom-btn zoom-reset-btn" onClick={(e) => { e.stopPropagation(); zoom.resetZoom(); }} title="重置">
+          {Math.round(zoom.scale * 100)}%
+        </button>
+        <button className="zoom-btn" onClick={(e) => { e.stopPropagation(); zoom.zoomOut(); }} title="缩小">
+          <Icon.ZoomOut />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ========== 主应用 ==========
+function App() {
+  const [state, setState] = useState(loadState);
+  const [editMode, setEditMode] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [showControls, setShowControls] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [videoSrc, setVideoSrc] = useState(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [episodesCollapsed, setEpisodesCollapsed] = useState(() => loadState().episodesCollapsed || false);
+  const [countInput, setCountInput] = useState("");
+  const [confirmModal, setConfirmModal] = useState(null);
+  const [countModalOpen, setCountModalOpen] = useState(false);
+  const [viewerSrc, setViewerSrc] = useState(null);
+  const [guessLikeImages, setGuessLikeImages] = useState({});
+  const [deviceId] = useState(getDeviceId);
+  const [apiBase, setApiBase] = useState(getApiBase());
+  const [vipState, setVipState] = useState({ activated: false, type: null, activatedAt: null, expiresAt: null, daysLeft: 0 });
+  const [vipLoading, setVipLoading] = useState(true);
+  const [vipModalOpen, setVipModalOpen] = useState(false);
+  const [vipStatusModalOpen, setVipStatusModalOpen] = useState(false);
+  const [apiSettingModalOpen, setApiSettingModalOpen] = useState(false);
+  const [apiSettingInput, setApiSettingInput] = useState("");
+  const [vipCodeInput, setVipCodeInput] = useState("");
+  const [activating, setActivating] = useState(false);
+
+  const videoRef = useRef(null);
+  const vpRef = useRef(null);
+  const coverInputRef = useRef(null);
+  const videoFileInputRef = useRef(null);
+  const glInputRefs = useRef({});
+  const controlsTimeoutRef = useRef(null);
+  const gridRef = useRef(null);
+  const currentEpRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+
+  // 展开或切集 / 集数变化时，确保当前集在可视区域内
+  useEffect(() => {
+    if (!episodesCollapsed && currentEpRef.current && scrollContainerRef.current) {
+      const el = currentEpRef.current;
+      const container = scrollContainerRef.current;
+      const elTop = el.offsetTop;
+      const elBottom = elTop + el.offsetHeight;
+      const viewTop = container.scrollTop;
+      const viewBottom = viewTop + container.clientHeight;
+      if (elTop < viewTop) {
+        container.scrollTo({ top: elTop - 10, behavior: "smooth" });
+      } else if (elBottom > viewBottom) {
+        container.scrollTo({ top: elBottom - container.clientHeight + 10, behavior: "smooth" });
+      }
+    }
+  }, [state.currentEpisodeIndex, state.episodes.length, episodesCollapsed]);
+
+  const videoZoom = useZoomPan(0.5, 3);
+
+  const currentEp = state.episodes[state.currentEpisodeIndex];
+  const activeSource = state.sources.find(s => s.active);
+
+  // 会员状态
+  const isVipActive = vipState.activated && vipState.daysLeft > 0;
+  const daysLeft = vipState.daysLeft || 0;
+
+  // 页面加载时查询会员状态
+  const fetchVipStatus = useCallback(async () => {
+    try {
+      setVipLoading(true);
+      const data = await apiStatus(deviceId);
+      setVipState({
+        activated: !!data.activated,
+        type: data.type || null,
+        activatedAt: data.activatedAt || null,
+        expiresAt: data.expiresAt || null,
+        daysLeft: data.daysLeft || 0
+      });
+    } catch (err) {
+      console.warn("查询会员状态失败", err);
+      setVipState({ activated: false, type: null, activatedAt: null, expiresAt: null, daysLeft: 0 });
+    } finally {
+      setVipLoading(false);
+    }
+  }, [deviceId]);
+
+  useEffect(() => { fetchVipStatus(); }, [fetchVipStatus]);
+
+  // 激活码验证
+  const activateCode = async () => {
+    const code = vipCodeInput.trim();
+    if (!code) { showToast("请输入激活码"); return; }
+    try {
+      setActivating(true);
+      const res = await apiActivate(deviceId, code);
+      if (res.success) {
+        const typeName = res.type === "year" ? "年卡" : res.type === "month" ? "月卡" : "";
+        showToast(`激活成功！${typeName} +${res.days}天`);
+        setVipCodeInput("");
+        setVipModalOpen(false);
+        fetchVipStatus();
+      } else {
+        showToast(res.error || "激活失败");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("网络错误，请稍后重试");
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  // 保存API地址
+  const saveApiSetting = () => {
+    const url = apiSettingInput.trim();
+    saveApiBase(url);
+    setApiBase(url || DEFAULT_API_BASE);
+    setApiSettingModalOpen(false);
+    showToast("API地址已保存");
+    setTimeout(() => fetchVipStatus(), 100);
+  };
+
+  // 持久化
+  useEffect(() => { saveState(state); }, [state]);
+  useEffect(() => {
+    setState(s => ({ ...s, episodesCollapsed }));
+  }, [episodesCollapsed]);
+
+  const showToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 1800);
+  }, []);
+
+  // 加载猜你喜欢图片
+  useEffect(() => {
+    state.guessLikes.forEach(g => {
+      if (g.imageId && !guessLikeImages[g.id]) {
+        getBlob(STORE_IMAGES, g.imageId).then(blob => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            setGuessLikeImages(prev => ({ ...prev, [g.id]: url }));
+          }
+        });
+      }
+    });
+  }, [state.guessLikes]);
+
+  // 滚轮缩放
+  useEffect(() => {
+    const el = vpRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (videoZoom.scale >= 0.5 && videoZoom.scale <= 3) {
+        e.preventDefault();
+        videoZoom.handleWheel(e);
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [videoZoom]);
+
+  // 集数切换时重置视频缩放
+  useEffect(() => {
+    videoZoom.resetZoom();
+  }, [state.currentEpisodeIndex]);
+
+  // 加载视频
+  useEffect(() => {
+    const ep = state.episodes[state.currentEpisodeIndex];
+    if (!ep) return;
+    setVideoLoading(true);
+    if (ep.videoId) {
+      getBlob(STORE_VIDEOS, ep.videoId).then(blob => {
+        if (blob) {
+          setVideoSrc(URL.createObjectURL(blob));
+        } else {
+          setVideoSrc(DEFAULT_VIDEO_SRC);
+        }
+        setVideoLoading(false);
+      }).catch(() => {
+        setVideoSrc(DEFAULT_VIDEO_SRC);
+        setVideoLoading(false);
+      });
+    } else {
+      setVideoSrc(DEFAULT_VIDEO_SRC);
+      setVideoLoading(false);
+    }
+    setCurrentTime(0);
+    setIsPlaying(false);
+    videoZoom.resetZoom();
+  }, [state.currentEpisodeIndex, state.episodes[state.currentEpisodeIndex]?.videoId]);
+
+  // 视频事件
+  const onTimeUpdate = () => {
+    if (videoRef.current) setCurrentTime(videoRef.current.currentTime);
+  };
+  const onLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration);
+      const ep = state.episodes[state.currentEpisodeIndex];
+      if (ep?.progress && ep.progress > 0) {
+        videoRef.current.currentTime = ep.progress;
+      }
+    }
+  };
+  const onCanPlay = () => setVideoLoading(false);
+  const onWaiting = () => setVideoLoading(true);
+
+  const onVideoEnded = () => {
+    setIsPlaying(false);
+    if (state.currentEpisodeIndex < state.episodes.length - 1) {
+      setTimeout(() => {
+        setState(s => ({ ...s, currentEpisodeIndex: s.currentEpisodeIndex + 1 }));
+        showToast("即将播放下一集");
+      }, 1000);
+    }
+  };
+
+  const saveProgress = useCallback(() => {
+    if (videoRef.current && videoRef.current.currentTime > 5) {
+      setState(s => {
+        const eps = [...s.episodes];
+        if (eps[s.currentEpisodeIndex]) {
+          eps[s.currentEpisodeIndex] = {
+            ...eps[s.currentEpisodeIndex],
+            progress: videoRef.current.currentTime
+          };
+        }
+        return { ...s, episodes: eps };
+      });
+    }
+  }, [state.currentEpisodeIndex]);
+
+  const togglePlay = useCallback(() => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+      saveProgress();
+    }
+  }, [saveProgress]);
+
+  const onProgressClick = (e) => {
+    if (!videoRef.current || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    videoRef.current.currentTime = Math.max(0, Math.min(duration, pct * duration));
+  };
+
+  const toggleFullscreen = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else if (v.requestFullscreen) {
+      v.requestFullscreen();
+    } else if (v.webkitEnterFullscreen) {
+      v.webkitEnterFullscreen();
+    }
+  };
+
+  const onVideoMouseMove = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (isPlaying) setShowControls(false);
+    }, 2500);
+  };
+
+  const fmtTime = (t) => {
+    if (!t || isNaN(t)) return "00:00";
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  const scrollToEpisodes = () => {
+    if (gridRef.current) {
+      gridRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      setEpisodesCollapsed(false);
+    }
+  };
+
+  // ========== 编辑 ==========
+  const updateField = (field, value) => setState(s => ({ ...s, [field]: value }));
+
+  const onCoverUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setState(s => ({ ...s, coverImage: ev.target.result }));
+      showToast("封面已更新");
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const onVideoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const videoId = `vid_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      setVideoLoading(true);
+      await saveBlob(STORE_VIDEOS, videoId, file);
+      setState(s => {
+        const eps = [...s.episodes];
+        eps[s.currentEpisodeIndex] = { ...eps[s.currentEpisodeIndex], videoId, progress: 0 };
+        return { ...s, episodes: eps };
+      });
+      setVideoSrc(URL.createObjectURL(file));
+      setVideoLoading(false);
+      showToast("视频已导入");
+    } catch (err) {
+      console.error(err);
+      setVideoLoading(false);
+      showToast("视频保存失败");
+    }
+    e.target.value = "";
+  };
+
+  // 猜你喜欢图片上传
+  const onGuessLikeImageUpload = (gid, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const imageId = `img_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    saveBlob(STORE_IMAGES, imageId, file).then(() => {
+      const url = URL.createObjectURL(file);
+      setGuessLikeImages(prev => ({ ...prev, [gid]: url }));
+      setState(s => ({
+        ...s,
+        guessLikes: s.guessLikes.map(g => g.id === gid ? { ...g, imageId } : g)
+      }));
+      showToast("图片已更新");
+    }).catch(() => showToast("保存失败"));
+    e.target.value = "";
+  };
+
+  const updateGuessLikeTitle = (gid, title) => {
+    setState(s => ({
+      ...s,
+      guessLikes: s.guessLikes.map(g => g.id === gid ? { ...g, title } : g)
+    }));
+  };
+
+  const goToEpisode = (index) => {
+    if (!isVipActive && index >= VIP_FREE_EPISODES) {
+      showToast("请先激活会员");
+      setVipModalOpen(true);
+      return;
+    }
+    saveProgress();
+    setState(s => ({ ...s, currentEpisodeIndex: index }));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const addEpisode = () => {
+    setState(s => {
+      const newNum = s.episodes.length + 1;
+      const newEp = {
+        id: `ep${Date.now()}`,
+        label: `${newNum}集`,
+        videoId: null,
+        progress: 0
+      };
+      return { ...s, episodes: [...s.episodes, newEp] };
+    });
+    showToast("已添加新剧集");
+  };
+
+  const deleteEpisode = (index, e) => {
+    e.stopPropagation();
+    if (state.episodes.length <= 1) { showToast("至少保留一集"); return; }
+    const ep = state.episodes[index];
+    if (ep.videoId) delBlob(STORE_VIDEOS, ep.videoId).catch(() => {});
+    setState(s => {
+      const eps = s.episodes.filter((_, i) => i !== index);
+      let newIdx = s.currentEpisodeIndex;
+      if (index < s.currentEpisodeIndex) newIdx--;
+      if (newIdx >= eps.length) newIdx = eps.length - 1;
+      if (newIdx < 0) newIdx = 0;
+      return { ...s, episodes: eps, currentEpisodeIndex: newIdx };
+    });
+    showToast("已删除该集");
+  };
+
+  // 播放源
+  const selectSource = (id) => setState(s => ({
+    ...s,
+    sources: s.sources.map(src => ({ ...src, active: src.id === id }))
+  }));
+  const addSource = () => {
+    const newSrc = { id: `s${Date.now()}`, name: "新播放源", active: false };
+    setState(s => ({ ...s, sources: [...s.sources, newSrc] }));
+    showToast("已添加播放源");
+  };
+  const deleteSource = (id, e) => {
+    e.stopPropagation();
+    setState(s => {
+      const remaining = s.sources.filter(src => src.id !== id);
+      if (remaining.length === 0) return s;
+      const wasActive = s.sources.find(src => src.id === id)?.active;
+      if (wasActive) remaining[0].active = true;
+      return { ...s, sources: remaining };
+    });
+  };
+  const updateSourceName = (id, newName) => setState(s => ({
+    ...s,
+    sources: s.sources.map(src => src.id === id ? { ...src, name: newName } : src)
+  }));
+  const updateEpisodeLabel = (index, newLabel) => setState(s => {
+    const eps = [...s.episodes];
+    eps[index] = { ...eps[index], label: newLabel };
+    return { ...s, episodes: eps };
+  });
+
+  // 批量设置集数
+  const applyEpisodeCount = () => {
+    const target = parseInt(countInput, 10);
+    if (isNaN(target) || target < 1) { showToast("请输入有效的集数"); return; }
+    if (target > 200) { showToast("最多支持 200 集"); return; }
+    if (target === state.episodes.length) { showToast("集数未变化"); return; }
+    if (target < state.episodes.length) {
+      const removeCount = state.episodes.length - target;
+      const affected = state.episodes.slice(target).filter(e => e.videoId).length;
+      setCountModalOpen(false);
+      setConfirmModal({ targetCount: target, removeCount, affected });
+    } else {
+      doApplyCount(target);
+      setCountModalOpen(false);
+    }
+  };
+  const doApplyCount = (target) => {
+    const prevLen = state.episodes.length;
+    let deletedVideoIds = [];
+    if (target < prevLen) {
+      state.episodes.slice(target).forEach(ep => {
+        if (ep.videoId) deletedVideoIds.push(ep.videoId);
+      });
+    }
+    deletedVideoIds.forEach(id => delBlob(STORE_VIDEOS, id).catch(() => {}));
+
+    setState(s => {
+      let eps = [...s.episodes];
+      if (target > eps.length) {
+        const baseTs = Date.now();
+        for (let i = eps.length; i < target; i++) {
+          eps.push({
+            id: `ep${baseTs}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+            label: `${i + 1}集`,
+            videoId: null,
+            progress: 0
+          });
+        }
+      } else if (target < eps.length) {
+        eps = eps.slice(0, target);
+      }
+      let newIdx = s.currentEpisodeIndex;
+      if (newIdx >= eps.length) newIdx = eps.length - 1;
+      if (newIdx < 0) newIdx = 0;
+      return { ...s, episodes: eps, currentEpisodeIndex: newIdx };
+    });
+
+    setConfirmModal(null);
+    setCountInput("");
+    setCountModalOpen(false);
+
+    if (target > prevLen) {
+      showToast(`已增加到 ${target} 集`);
+    } else if (target < prevLen) {
+      showToast(`已删减为 ${target} 集`);
+    }
+  };
+
+  // 重置
+  const resetAll = () => {
+    if (!confirm("确定要重置所有内容吗？")) return;
+    localStorage.removeItem("drama-simulator-state");
+    indexedDB.deleteDatabase(DB_NAME);
+    setState({ ...defaultState });
+    setGuessLikeImages({});
+    setEditMode(false);
+    setMenuOpen(false);
+    showToast("已重置为默认状态");
+  };
+
+  const exportConfig = () => {
+    const dataStr = JSON.stringify(state, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `剧集配置_${state.dramaTitle}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("配置已导出");
+    setMenuOpen(false);
+  };
+  const importConfig = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        setState(prev => ({ ...defaultState, ...data }));
+        showToast("配置已导入");
+      } catch { showToast("配置文件格式错误"); }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+    setMenuOpen(false);
+  };
+
+  // contenteditable 同步
+  useEffect(() => {
+    document.querySelectorAll(".editable").forEach(el => {
+      el.setAttribute("contenteditable", editMode ? "true" : "false");
+    });
+  }, [editMode, state]);
+
+  const playBtnText = isPlaying ? "暂停" : "播放";
+
+  // 视频视口的鼠标/触摸事件
+  const handleVpMouseDown = (e) => {
+    if (editMode) return;
+    videoZoom.handleDown(e);
+  };
+  const handleVpMouseMove = (e) => {
+    videoZoom.handleMove(e);
+  };
+  const handleVpMouseUp = () => { videoZoom.handleUp(); };
+  const handleVpTouchStart = (e) => {
+    if (editMode) return;
+    videoZoom.handleTouchStart(e);
+  };
+  const handleVpDblClick = (e) => {
+    if (editMode) return;
+    e.stopPropagation();
+    videoZoom.handleDoubleClick(e);
+  };
+
+  // 处理点击封面
+  const handleCoverClick = () => {
+    if (editMode) {
+      coverInputRef.current?.click();
+    } else {
+      setViewerSrc(state.coverImage);
+    }
+  };
+
+  // 处理猜你喜欢点击
+  const handleGuessLikeClick = (g) => {
+    if (editMode) {
+      glInputRefs.current[g.id]?.click();
+    } else {
+      const img = guessLikeImages[g.id] || state.coverImage;
+      setViewerSrc(img);
+    }
+  };
+
+  return (
+    <div className="page-wrap">
+      <div className={`app ${editMode ? "edit-mode" : ""}`}>
+        {editMode && (
+          <div className="edit-banner">
+            <strong>编辑模式</strong> — 点击文字修改，点击封面/视频上传素材
+          </div>
+        )}
+
+        {/* 顶部导航栏 */}
+        <nav className="nav-bar">
+          <EditableText
+            tag="h1"
+            className="nav-title"
+            value={state.channelTitle}
+            onChange={(v) => updateField("channelTitle", v)}
+            placeholder="频道名称"
+          />
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div
+              className={`vip-badge ${isVipActive ? "" : "inactive"}`}
+              onClick={() => {
+                if (isVipActive) setVipStatusModalOpen(true);
+                else setVipModalOpen(true);
+              }}
+              title={isVipActive ? "查看会员状态" : "激活会员"}
+            >
+              <span className="crown">♛</span>
+              {isVipActive ? `剩${daysLeft}天` : "未激活"}
+            </div>
+            <button className="nav-menu-btn" onClick={() => setMenuOpen(!menuOpen)} aria-label="菜单">
+              <Icon.Menu />
+            </button>
+          </div>
+          {menuOpen && (
+            <>
+              <div style={{position:"fixed",inset:0,zIndex:140}} onClick={() => setMenuOpen(false)} />
+              <div className="menu-panel">
+                <div className="menu-vip-header">
+                  <span className="label">会员状态</span>
+                  <span className={`status ${isVipActive ? "" : "inactive"}`}>
+                    {isVipActive ? `剩余${daysLeft}天` : "未激活"}
+                  </span>
+                </div>
+                <div className="menu-item" onClick={() => { setVipModalOpen(true); setMenuOpen(false); }}>
+                  <Icon.Crown />
+                  {isVipActive ? "激活码充值" : "激活会员"}
+                </div>
+                {isVipActive && (
+                  <div className="menu-item" onClick={() => { setVipStatusModalOpen(true); setMenuOpen(false); }}>
+                    <Icon.Edit />
+                    查看会员状态
+                  </div>
+                )}
+                <div className="menu-item" onClick={() => { setApiSettingInput(getApiBase()); setApiSettingModalOpen(true); setMenuOpen(false); }}>
+                  <Icon.Reset />
+                  API设置
+                </div>
+                <div className="menu-item" onClick={() => { setEditMode(!editMode); setMenuOpen(false); }}>
+                  <Icon.Edit />
+                  {editMode ? "退出编辑模式" : "进入编辑模式"}
+                </div>
+                <div className="menu-item" onClick={() => { setCountModalOpen(true); setMenuOpen(false); }}>
+                  <Icon.List /> 设置集数
+                </div>
+                <div className="menu-item" onClick={exportConfig}>
+                  <Icon.Export /> 导出配置
+                </div>
+                <label className="menu-item" style={{cursor:"pointer"}}>
+                  <Icon.Upload /> 导入配置
+                  <input type="file" accept=".json" className="hidden-input" onChange={importConfig} />
+                </label>
+                <div className="menu-item danger" onClick={resetAll}>
+                  <Icon.Reset /> 重置为默认
+                </div>
+              </div>
+            </>
+          )}
+        </nav>
+
+        {/* 隐藏文件输入 */}
+        <input ref={coverInputRef} type="file" accept="image/*" className="hidden-input" onChange={onCoverUpload} />
+        <input ref={videoFileInputRef} type="file" accept="video/*" className="hidden-input" onChange={onVideoUpload} />
+        {state.guessLikes.map(g => (
+          <input
+            key={g.id}
+            ref={el => glInputRefs.current[g.id] = el}
+            type="file"
+            accept="image/*"
+            className="hidden-input"
+            onChange={(e) => onGuessLikeImageUpload(g.id, e)}
+          />
+        ))}
+
+        {/* 视频播放区域 */}
+        <div
+          className="video-section"
+          onMouseMove={onVideoMouseMove}
+          onMouseLeave={() => isPlaying && setShowControls(false)}
+          onClick={(e) => {
+            if (editMode) {
+              videoFileInputRef.current?.click();
+            }
+          }}
+        >
+          <div
+            ref={vpRef}
+            className={`video-viewport ${videoZoom.dragging ? "dragging" : ""}`}
+            onMouseDown={handleVpMouseDown}
+            onMouseMove={handleVpMouseMove}
+            onMouseUp={handleVpMouseUp}
+            onMouseLeave={handleVpMouseUp}
+            onTouchStart={handleVpTouchStart}
+            onTouchMove={(e) => videoZoom.handleMove(e)}
+            onTouchEnd={handleVpMouseUp}
+            onDoubleClick={handleVpDblClick}
+            onClick={(e) => {
+              if (!editMode && !e.target.closest(".video-controls") && !e.target.closest(".zoom-controls")) {
+                if (videoZoom.scale <= 1.01) togglePlay();
+              }
+            }}
+          >
+            <div className="video-scale-wrap" style={{ transform: videoZoom.transform }}>
+              {videoSrc ? (
+                <video
+                  ref={videoRef}
+                  src={videoSrc}
+                  playsInline
+                  webkit-playsinline="true"
+                  onTimeUpdate={onTimeUpdate}
+                  onLoadedMetadata={onLoadedMetadata}
+                  onCanPlay={onCanPlay}
+                  onWaiting={onWaiting}
+                  onEnded={onVideoEnded}
+                />
+              ) : (
+                <div className="video-import-hint">
+                  <Icon.Upload />
+                  {videoLoading ? "加载中..." : "点击导入视频"}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 缩放控制 */}
+          {videoSrc && (
+            <div className="zoom-controls">
+              <button className="zoom-btn" onClick={(e) => { e.stopPropagation(); videoZoom.zoomIn(); }} title="放大">
+                <Icon.ZoomIn />
+              </button>
+              <button className="zoom-btn zoom-reset-btn" onClick={(e) => { e.stopPropagation(); videoZoom.resetZoom(); }} title="重置">
+                {Math.round(videoZoom.scale * 100)}%
+              </button>
+              <button className="zoom-btn" onClick={(e) => { e.stopPropagation(); videoZoom.zoomOut(); }} title="缩小">
+                <Icon.ZoomOut />
+              </button>
+            </div>
+          )}
+
+          {/* 加载动画 */}
+          {videoLoading && videoSrc && (
+            <div className="video-loading"><div className="spinner" /></div>
+          )}
+
+          {/* 左上角剧名 */}
+          <div className="video-title-badge">
+            <EditableText
+              value={state.dramaTitle}
+              onChange={(v) => updateField("dramaTitle", v)}
+              placeholder="剧名"
+            />
+            <span> </span>第{state.currentEpisodeIndex + 1}集
+          </div>
+
+          {/* 编辑模式视频上传遮罩 */}
+          {editMode && (
+            <div className="video-import-overlay" onClick={(e) => { e.stopPropagation(); videoFileInputRef.current?.click(); }}>
+              <button className="video-import-btn">替换视频（第 {state.currentEpisodeIndex + 1} 集）</button>
+            </div>
+          )}
+
+          {/* 控制栏 */}
+          {videoSrc && (
+            <div className={`video-controls ${!showControls && isPlaying ? "hidden" : ""}`} onClick={(e) => e.stopPropagation()}>
+              <div className="progress-bar" onClick={onProgressClick}>
+                <div className="progress-fill" style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }} />
+              </div>
+              <div className="control-row">
+                <div className="control-left">
+                  <button className="ctrl-btn" onClick={togglePlay}>
+                    {isPlaying ? <Icon.Pause /> : <Icon.PlayBig />}
+                  </button>
+                  <span>{fmtTime(currentTime)} / {fmtTime(duration)}</span>
+                </div>
+                <div className="control-right">
+                  <span className="quality-tag">{activeSource?.name || "清晰度"}</span>
+                  <button className="select-ep-btn" onClick={scrollToEpisodes}>选集</button>
+                  <button className="ctrl-btn" onClick={toggleFullscreen}><Icon.Fullscreen /></button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 剧集信息区 */}
+        <section className="info-section">
+          <div className="cover-wrapper" onClick={handleCoverClick}>
+            <img className="cover-img" src={state.coverImage} alt="封面" />
+          </div>
+          <div className="info-content">
+            <EditableText tag="h2" className="drama-title" value={state.dramaTitle}
+              onChange={(v) => updateField("dramaTitle", v)} placeholder="剧集名称" />
+            <div className="drama-rating">
+              <span className="rating-star">★</span>
+              <EditableText value={state.rating} onChange={(v) => updateField("rating", v)} placeholder="评分" />
+            </div>
+            <div className="drama-meta">
+              <EditableText value={state.year} onChange={(v) => updateField("year", v)} placeholder="年份" />
+              <span style={{opacity:0.5}}>·</span>
+              <EditableText value={state.genre} onChange={(v) => updateField("genre", v)} placeholder="类型" />
+              <span style={{opacity:0.5}}>·</span>
+              <span
+                className={`ep-count-meta ${editMode ? "editable" : ""}`}
+                onClick={() => { if (editMode) { setCountModalOpen(true); setCountInput(""); } }}
+                title={editMode ? "点击修改集数" : ""}
+              >
+                共 {state.episodes.length} 集
+              </span>
+            </div>
+            <p
+              className={`drama-desc ${descExpanded ? "expanded" : ""}`}
+              onClick={() => editMode ? null : setDescExpanded(!descExpanded)}
+            >
+              <EditableText value={state.description} onChange={(v) => updateField("description", v)}
+                placeholder="暂无介绍" multiline={true} />
+            </p>
+          </div>
+        </section>
+
+        {/* 操作栏 */}
+        <section className="action-bar">
+          <button className="play-btn" onClick={togglePlay}>
+            {isPlaying ? <Icon.Pause /> : <Icon.Play />}
+            {playBtnText}
+          </button>
+          <button className="action-chip">
+            <Icon.Like />
+            <span className="chip-num">
+              <EditableText value={state.likeCount} onChange={(v) => updateField("likeCount", v)} placeholder="点赞" />
+            </span>
+          </button>
+          <button className="action-chip">
+            <Icon.Comment />
+            <span className="chip-num">
+              <EditableText value={state.commentCount} onChange={(v) => updateField("commentCount", v)} placeholder="评论" />
+            </span>
+          </button>
+          <button className="action-chip" onClick={() => showToast("分享链接已复制")}>
+            <Icon.Share />
+            <span className="chip-num">分享</span>
+          </button>
+        </section>
+
+        {/* 播放源 */}
+        <section className="source-section">
+          <h3 className="section-label">播放源</h3>
+          <div className="source-tabs">
+            {state.sources.map(src => (
+              <div key={src.id} className={`source-tab ${src.active ? "active" : ""}`} onClick={() => selectSource(src.id)}>
+                <EditableText value={src.name} onChange={(v) => updateSourceName(src.id, v)} placeholder="播放源名称" />
+                {editMode && state.sources.length > 1 && (
+                  <button className="del-btn" onClick={(e) => deleteSource(src.id, e)}>×</button>
+                )}
+              </div>
+            ))}
+            {editMode && (
+              <button className="add-source-btn" onClick={addSource}>
+                <Icon.Plus /> 添加
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* 剧集列表 */}
+        <section className="episodes-section" ref={gridRef}>
+          <div className="episodes-header">
+            <div className="episodes-title-wrap">
+              <h3>剧集列表</h3>
+              <span className="episodes-count">共 {state.episodes.length} 集</span>
+            </div>
+            <button className="collapse-btn" onClick={() => setEpisodesCollapsed(!episodesCollapsed)}>
+              {episodesCollapsed ? "展开" : "收起"}
+              {episodesCollapsed ? <Icon.ChevronDown /> : <Icon.ChevronUp />}
+            </button>
+          </div>
+
+          <div
+            className={`episodes-grid-wrap ${episodesCollapsed ? "collapsed" : ""}`}
+            style={{ maxHeight: episodesCollapsed ? "0px" : "600px" }}
+          >
+            <div className="episodes-scroll" ref={scrollContainerRef}>
+              <div className="episodes-grid">
+              {state.episodes.map((ep, i) => (
+                <button
+                  key={ep.id}
+                  className={`episode-btn ${i === state.currentEpisodeIndex ? "active" : ""} ${ep.videoId ? "has-video" : ""}`}
+                  onClick={() => goToEpisode(i)}
+                  ref={i === state.currentEpisodeIndex ? currentEpRef : null}
+                >
+                  {editMode && (
+                    <button className="ep-del-btn" onClick={(e) => deleteEpisode(i, e)}>×</button>
+                  )}
+                  <EditableText value={ep.label} onChange={(v) => updateEpisodeLabel(i, v)} placeholder="集数" />
+                </button>
+              ))}
+
+            </div>
+            </div>
+
+            {/* 猜你喜欢 */}
+            <div className="guess-like">
+              <h4 className="guess-like-title">猜你喜欢</h4>
+              <div className="guess-like-list">
+                {state.guessLikes.map(g => (
+                  <div key={g.id} className="guess-like-item" onClick={() => handleGuessLikeClick(g)}>
+                    <img
+                      className="gl-cover"
+                      src={guessLikeImages[g.id] || state.coverImage}
+                      alt=""
+                    />
+                    <div className="gl-name">
+                      <EditableText value={g.title} onChange={(v) => updateGuessLikeTitle(g.id, v)} placeholder="推荐" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div style={{ height: "100px" }} />
+      </div>
+
+      {/* 编辑按钮 */}
+      <button
+        className={`edit-toggle ${editMode ? "active" : ""}`}
+        onClick={() => setEditMode(!editMode)}
+        title={editMode ? "退出编辑模式" : "进入编辑模式"}
+      >
+        {editMode ? <Icon.Check /> : <Icon.Edit />}
+      </button>
+
+      {/* Toast */}
+      {toast && <div className="toast">{toast}</div>}
+
+      {/* 集数设置弹窗 */}
+      {countModalOpen && (
+        <div className="modal-overlay" onClick={() => { setCountModalOpen(false); setCountInput(""); }}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h4 className="modal-title">设置集数</h4>
+            <p className="modal-desc">
+              当前共 {state.episodes.length} 集<br/>
+              输入目标集数（1-200）
+            </p>
+            <input
+              type="number"
+              min="1"
+              max="200"
+              placeholder={String(state.episodes.length)}
+              value={countInput}
+              onChange={(e) => setCountInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applyEpisodeCount()}
+              autoFocus
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                fontSize: "16px",
+                border: "1px solid #ddd",
+                borderRadius: "8px",
+                textAlign: "center",
+                outline: "none",
+                marginBottom: "16px",
+                fontFamily: "inherit"
+              }}
+              onFocus={(e) => e.target.select()}
+            />
+            <div className="modal-actions">
+              <button className="modal-btn cancel" onClick={() => { setCountModalOpen(false); setCountInput(""); }}>
+                取消
+              </button>
+              <button className="modal-btn danger" onClick={applyEpisodeCount}>
+                确定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 确认删除弹窗 */}
+      {confirmModal && (
+        <div className="modal-overlay" onClick={() => setConfirmModal(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h4 className="modal-title">确认调整集数？</h4>
+            <p className="modal-desc">
+              将删除末尾 {confirmModal.removeCount} 集
+              {confirmModal.affected > 0 && (
+                <><br/>其中 {confirmModal.affected} 集有关联视频，删除后无法恢复</>
+              )}
+            </p>
+            <div className="modal-actions">
+              <button className="modal-btn cancel" onClick={() => setConfirmModal(null)}>取消</button>
+              <button className="modal-btn danger" onClick={() => doApplyCount(confirmModal.targetCount)}>确认删除</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 图片查看器 */}
+      {viewerSrc && <ImageViewer src={viewerSrc} onClose={() => setViewerSrc(null)} />}
+
+      {/* 激活会员弹窗 */}
+      {vipModalOpen && (
+        <div className="modal-overlay" onClick={() => { setVipModalOpen(false); setVipCodeInput(""); }}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h4 className="modal-title">激活会员</h4>
+            <p className="modal-desc" style={{ marginBottom: "14px" }}>
+              输入激活码解锁全部剧集
+            </p>
+            <input
+              type="text"
+              className="vip-modal-input"
+              placeholder="请输入激活码"
+              value={vipCodeInput}
+              onChange={(e) => setVipCodeInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && activateCode()}
+              autoFocus
+            />
+            <p className="vip-hint">
+              支持月卡（30天）和年卡（365天）激活码<br/>
+              多卡激活可叠加时长
+            </p>
+            <div className="modal-actions">
+              <button className="modal-btn cancel" onClick={() => { setVipModalOpen(false); setVipCodeInput(""); }}>
+                取消
+              </button>
+              <button className="modal-btn danger" onClick={activateCode} disabled={activating}>
+                {activating ? "激活中..." : "激活"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 会员状态弹窗 */}
+      {vipStatusModalOpen && (
+        <div className="modal-overlay" onClick={() => setVipStatusModalOpen(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h4 className="modal-title">会员状态</h4>
+            <div className="vip-status-row">
+              <span className="label">会员状态</span>
+              <span className="value vip">{isVipActive ? "已激活" : "未激活"}</span>
+            </div>
+            <div className="vip-status-row">
+              <span className="label">会员类型</span>
+              <span className="value">{vipState.type === "year" ? "年卡" : vipState.type === "month" ? "月卡" : "-"}</span>
+            </div>
+            <div className="vip-status-row">
+              <span className="label">激活时间</span>
+              <span className="value">{formatDate(vipState.activatedAt)}</span>
+            </div>
+            <div className="vip-status-row">
+              <span className="label">到期时间</span>
+              <span className="value">{formatDate(vipState.expiresAt)}</span>
+            </div>
+            <div className="vip-status-row">
+              <span className="label">剩余天数</span>
+              <span className="value vip">{daysLeft} 天</span>
+            </div>
+            <div style={{ marginTop: "20px" }}>
+              <button className="modal-btn danger" style={{ width: "100%" }} onClick={() => { setVipStatusModalOpen(false); setVipModalOpen(true); }}>
+                使用激活码充值
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* API设置弹窗 */}
+      {apiSettingModalOpen && (
+        <div className="modal-overlay" onClick={() => setApiSettingModalOpen(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h4 className="modal-title">API设置</h4>
+            <p className="modal-desc" style={{ marginBottom: "14px" }}>
+              设置后端API基础地址<br/>
+              默认使用同域名 /api 路径
+            </p>
+            <input
+              type="text"
+              className="vip-modal-input"
+              style={{ letterSpacing: "normal", fontFamily: "inherit", textAlign: "left" }}
+              placeholder="https://example.com/api"
+              value={apiSettingInput}
+              onChange={(e) => setApiSettingInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && saveApiSetting()}
+              autoFocus
+            />
+            <p className="vip-hint" style={{ textAlign: "left" }}>
+              设备ID：<code style={{ background: "#f5f5f5", padding: "2px 6px", borderRadius: "3px", fontSize: "11px" }}>{deviceId.slice(0, 16)}...</code>
+            </p>
+            <div className="modal-actions">
+              <button className="modal-btn cancel" onClick={() => setApiSettingModalOpen(false)}>
+                取消
+              </button>
+              <button className="modal-btn danger" onClick={saveApiSetting}>
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>激活码管理后台</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; }
+  .container { max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 24px; margin-bottom: 20px; color: #333; }
+  .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 14px; color: #666; margin-bottom: 6px; }
+  input, select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+  button { background: #ff4757; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-size: 15px; cursor: pointer; width: 100%; }
+  button:hover { background: #ff3838; }
+  .result { margin-top: 16px; }
+  .code-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 12px; }
+  .code-item { background: #f8f8f8; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 13px; text-align: center; cursor: pointer; user-select: all; }
+  .code-item:hover { background: #eee; }
+  .msg { padding: 10px; border-radius: 8px; margin-top: 12px; font-size: 14px; }
+  .msg.error { background: #ffe0e0; color: #c0392b; }
+  .msg.success { background: #e0ffe0; color: #27ae60; }
+  .stats { display: flex; gap: 20px; margin-bottom: 16px; }
+  .stat-item { flex: 1; text-align: center; padding: 16px; background: #f8f8f8; border-radius: 8px; }
+  .stat-num { font-size: 28px; font-weight: bold; color: #ff4757; }
+  .stat-label { font-size: 12px; color: #999; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>激活码管理后台</h1>
+
+  <div class="card">
+    <h3 style="margin-bottom:16px;">生成激活码</h3>
+    <div class="form-group">
+      <label>管理员密码</label>
+      <input type="password" id="password" placeholder="请输入管理员密码">
+    </div>
+    <div class="form-group">
+      <label>类型</label>
+      <select id="type">
+        <option value="month">月卡（30天）</option>
+        <option value="year">年卡（365天）</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>数量（最多500）</label>
+      <input type="number" id="count" value="10" min="1" max="500">
+    </div>
+    <div class="form-group">
+      <label>前缀（可选）</label>
+      <input type="text" id="prefix" placeholder="默认 MONTH 或 YEAR">
+    </div>
+    <button onclick="generateCodes()">生成激活码</button>
+    <div id="result" class="result"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:16px;">查询激活码状态</h3>
+    <div class="form-group">
+      <label>激活码</label>
+      <input type="text" id="queryCode" placeholder="输入要查询的激活码">
+    </div>
+    <button onclick="queryCode()" style="background:#576574;">查询</button>
+    <div id="queryResult" class="result"></div>
+  </div>
+</div>
+
+<script>
+const API_BASE = '/api';
+
+async function generateCodes() {
+  const password = document.getElementById('password').value;
+  const type = document.getElementById('type').value;
+  const count = document.getElementById('count').value;
+  const prefix = document.getElementById('prefix').value;
+  const resultDiv = document.getElementById('result');
+
+  if (!password) {
+    resultDiv.innerHTML = '<div class="msg error">请输入管理员密码</div>';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/admin/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password, type, count, prefix }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      let html = `<div class="msg success">成功生成 ${data.count} 个${data.type === 'year' ? '年卡' : '月卡'}激活码，点击可复制</div>`;
+      html += '<div class="code-list">';
+      data.codes.forEach(code => {
+        html += `<div class="code-item" onclick="copyCode('${code}')">${code}</div>`;
+      });
+      html += '</div>';
+      resultDiv.innerHTML = html;
+    } else {
+      resultDiv.innerHTML = `<div class="msg error">${data.error}</div>`;
+    }
+  } catch (e) {
+    resultDiv.innerHTML = `<div class="msg error">请求失败: ${e.message}</div>`;
+  }
+}
+
+async function queryCode() {
+  const code = document.getElementById('queryCode').value.trim().toUpperCase();
+  const resultDiv = document.getElementById('queryResult');
+  if (!code) {
+    resultDiv.innerHTML = '<div class="msg error">请输入激活码</div>';
+    return;
+  }
+  // 简单提示，实际查询需要额外API
+  resultDiv.innerHTML = '<div class="msg">查询功能需配合查询API使用，当前版本可通过Redis后台查看</div>';
+}
+
+function copyCode(code) {
+  navigator.clipboard.writeText(code).then(() => {
+    // 临时高亮
+    event.target.style.background = '#d4edda';
+    setTimeout(() => event.target.style.background = '', 500);
+  });
+}
+</script>
+</body>
+</html>
