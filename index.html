@@ -633,28 +633,8 @@
   .episodes-grid-wrap.collapsed { max-height: 0 !important; }
 
   .episodes-scroll {
-    max-height: 320px;
-    overflow-y: auto;
-    overflow-x: hidden;
     padding-right: 4px;
     margin-right: -4px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0,0,0,0.15) transparent;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-  .episodes-scroll::-webkit-scrollbar {
-    width: 4px;
-  }
-  .episodes-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .episodes-scroll::-webkit-scrollbar-thumb {
-    background: rgba(0,0,0,0.18);
-    border-radius: 3px;
-  }
-  .episodes-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(0,0,0,0.3);
   }
 
   .episodes-grid {
@@ -1102,7 +1082,6 @@
     .guess-like-list { grid-template-columns: repeat(4, 1fr); }
     .edit-toggle { bottom: calc(24px + var(--safe-bottom)); right: calc(50% - 320px - 70px); }
     .menu-panel { right: calc(50% - 320px + 12px); }
-    .episodes-scroll { max-height: 380px; }
   }
 
   /* 平板大屏 / 横屏 */
@@ -1112,7 +1091,6 @@
     .guess-like-list { grid-template-columns: repeat(4, 1fr); }
     .edit-toggle { right: calc(50% - 360px - 70px); }
     .menu-panel { right: calc(50% - 360px + 12px); }
-    .episodes-scroll { max-height: 420px; }
   }
 
   /* 移动端 */
@@ -1142,7 +1120,6 @@
       height: 48px;
       font-size: 20px;
     }
-    .episodes-scroll { max-height: 300px; }
   }
   @keyframes slideUp {
     from { transform: translateY(100%); }
@@ -1447,6 +1424,12 @@ const Icon = {
   ZoomOut: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>
+    </svg>
+  ),
+  Trash: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
     </svg>
   )
 };
@@ -2161,6 +2144,28 @@ function App() {
     showToast("已重置为默认状态");
   };
 
+  const clearAllVideos = async () => {
+    if (!confirm("确定要清除所有已导入的视频吗？\n文字、封面、集数等设置不会被清除。")) return;
+    try {
+      const db = await openDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_VIDEOS, "readwrite");
+        tx.objectStore(STORE_VIDEOS).clear();
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+      });
+      setState(prev => ({
+        ...prev,
+        episodes: prev.episodes.map(ep => ({ ...ep, videoId: null, progress: 0 }))
+      }));
+      setVideoSrc(null);
+      setMenuOpen(false);
+      showToast("已清除所有视频");
+    } catch (e) {
+      showToast("清除失败：" + e.message);
+    }
+  };
+
   const exportConfig = () => {
     const dataStr = JSON.stringify(state, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
@@ -2362,6 +2367,9 @@ function App() {
                 </div>
                 <div className="menu-item" onClick={() => { setCountModalOpen(true); setMenuOpen(false); }}>
                   <Icon.List /> 设置集数
+                </div>
+                <div className="menu-item" onClick={clearAllVideos}>
+                  <Icon.Trash /> 清除所有视频
                 </div>
                 <div className="menu-item danger" onClick={resetAll}>
                   <Icon.Reset /> 重置为默认
