@@ -89,20 +89,19 @@ export async function onRequestPost(context) {
     const activatedAt = Date.now();
     const expiresAt = baseExpiresAt + days * 24 * 60 * 60 * 1000;
 
-    // 更新激活码状态并绑定设备
-    await fetch(`${redisUrl}/hmset/code:${code}?_token=${redisToken}`, {
+    // 更新激活码状态并绑定设备（用正确的POST数组形式）
+    await fetch(`${redisUrl}/?_token=${redisToken}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        used: 'true',
-        deviceId: deviceId,
-        activatedAt: String(activatedAt),
-        expiresAt: String(expiresAt),
-      }),
+      body: JSON.stringify(['hmset', `code:${code}`, 'used', 'true', 'deviceId', deviceId, 'activatedAt', String(activatedAt), 'expiresAt', String(expiresAt)]),
     });
 
     // 更新设备映射
-    await fetch(`${redisUrl}/set/device:${deviceId}/${code}?_token=${redisToken}`);
+    await fetch(`${redisUrl}/?_token=${redisToken}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(['set', `device:${deviceId}`, code]),
+    });
 
     return new Response(JSON.stringify({
       success: true,

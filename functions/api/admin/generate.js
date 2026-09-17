@@ -39,17 +39,11 @@ export async function onRequestPost(context) {
       const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
       const code = `${prefix}${randomPart}`;
 
-      // 写入Redis
-      await fetch(`${redisUrl}/hmset/code:${code}?_token=${redisToken}`, {
+      // 写入Redis（用正确的POST数组形式）
+      await fetch(`${redisUrl}/?_token=${redisToken}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: type,
-          used: 'false',
-          deviceId: '',
-          activatedAt: '',
-          expiresAt: '',
-        }),
+        body: JSON.stringify(['hmset', `code:${code}`, 'type', type, 'used', 'false', 'deviceId', '', 'activatedAt', '', 'expiresAt', '']),
       });
 
       generatedCodes.push(code);
