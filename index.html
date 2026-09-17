@@ -1459,6 +1459,8 @@ function useZoomPan(minScale = 0.5, maxScale = 3) {
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
   const lastTap = useRef(0);
+  const pinchStart = useRef({ dist: 0, scale: 1, cx: 0, cy: 0, tx: 0, ty: 0 });
+  const isPinching = useRef(false);
 
   const zoomIn = useCallback(() => {
     setScale(s => Math.min(maxScale, +(s * 1.25).toFixed(2)));
@@ -1489,8 +1491,27 @@ function useZoomPan(minScale = 0.5, maxScale = 3) {
     });
   }, [minScale, maxScale]);
 
+  // 计算两指距离
+  const getTouchDist = (touches) => {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
   // 鼠标/触摸拖动
   const handleDown = useCallback((e) => {
+    if (e.touches && e.touches.length === 2) {
+      // 双指捏合开始
+      isPinching.current = true;
+      pinchStart.current = {
+        dist: getTouchDist(e.touches),
+        scale: scale,
+        cx: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        cy: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        tx, ty
+      };
+      return;
+    }
     if (scale <= 1.01) return;
     const point = e.touches ? e.touches[0] : e;
     dragStart.current = { x: point.clientX, y: point.clientY, tx, ty };
@@ -1498,15 +1519,37 @@ function useZoomPan(minScale = 0.5, maxScale = 3) {
   }, [scale, tx, ty]);
 
   const handleMove = useCallback((e) => {
+    // 双指捏合缩放
+    if (e.touches && e.touches.length === 2 && isPinching.current) {
+      e.preventDefault();
+      const newDist = getTouchDist(e.touches);
+      const ratio = newDist / pinchStart.current.dist;
+      const newScale = Math.max(minScale, Math.min(maxScale, +(pinchStart.current.scale * ratio).toFixed(2)));
+      setScale(newScale);
+      // 以双指中心为基准调整位移
+      if (newScale > 1) {
+        const scaleRatio = newScale / pinchStart.current.scale;
+        setTx(pinchStart.current.tx * scaleRatio);
+        setTy(pinchStart.current.ty * scaleRatio);
+      } else {
+        setTx(0); setTy(0);
+      }
+      return;
+    }
     if (!dragging) return;
     const point = e.touches ? e.touches[0] : e;
     const dx = point.clientX - dragStart.current.x;
     const dy = point.clientY - dragStart.current.y;
     setTx(dragStart.current.tx + dx);
     setTy(dragStart.current.ty + dy);
-  }, [dragging]);
+  }, [dragging, minScale, maxScale]);
 
-  const handleUp = useCallback(() => { setDragging(false); }, []);
+  const handleUp = useCallback((e) => {
+    if (e.touches && e.touches.length < 2) {
+      isPinching.current = false;
+    }
+    setDragging(false);
+  }, []);
 
   // 双击放大/还原
   const handleDoubleClick = useCallback((e) => {
@@ -1517,8 +1560,12 @@ function useZoomPan(minScale = 0.5, maxScale = 3) {
     }
   }, [scale, resetZoom]);
 
-  // 触摸双击检测
+  // 触摸开始（支持双击检测和双指）
   const handleTouchStart = useCallback((e) => {
+    if (e.touches.length === 2) {
+      handleDown(e);
+      return;
+    }
     const now = Date.now();
     if (now - lastTap.current < 300) {
       e.preventDefault();
@@ -2159,7 +2206,7 @@ function App() {
   const handleVpMouseMove = (e) => {
     videoZoom.handleMove(e);
   };
-  const handleVpMouseUp = () => { videoZoom.handleUp(); };
+  const handleVpMouseUp = (e) => { videoZoom.handleUp(e); };
   const handleVpTouchStart = (e) => {
     if (editMode) return;
     videoZoom.handleTouchStart(e);
@@ -2285,17 +2332,6 @@ function App() {
             placeholder="频道名称"
           />
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div
-              className={`vip-badge ${isVipActive ? "" : "inactive"}`}
-              onClick={() => {
-                if (isVipActive) setVipStatusModalOpen(true);
-                else setVipModalOpen(true);
-              }}
-              title={isVipActive ? "查看会员状态" : "激活会员"}
-            >
-              <span className="crown">♛</span>
-              {isVipActive ? `剩${daysLeft}天` : "未激活"}
-            </div>
             <button className="nav-menu-btn" onClick={() => setMenuOpen(!menuOpen)} aria-label="菜单">
               <Icon.Menu />
             </button>
@@ -2320,10 +2356,6 @@ function App() {
                     查看会员状态
                   </div>
                 )}
-                <div className="menu-item" onClick={() => { setApiSettingInput(getApiBase()); setApiSettingModalOpen(true); setMenuOpen(false); }}>
-                  <Icon.Reset />
-                  API设置
-                </div>
                 <div className="menu-item" onClick={() => { setEditMode(!editMode); setMenuOpen(false); }}>
                   <Icon.Edit />
                   {editMode ? "退出编辑模式" : "进入编辑模式"}
@@ -2331,13 +2363,6 @@ function App() {
                 <div className="menu-item" onClick={() => { setCountModalOpen(true); setMenuOpen(false); }}>
                   <Icon.List /> 设置集数
                 </div>
-                <div className="menu-item" onClick={exportConfig}>
-                  <Icon.Export /> 导出配置
-                </div>
-                <label className="menu-item" style={{cursor:"pointer"}}>
-                  <Icon.Upload /> 导入配置
-                  <input type="file" accept=".json" className="hidden-input" onChange={importConfig} />
-                </label>
                 <div className="menu-item danger" onClick={resetAll}>
                   <Icon.Reset /> 重置为默认
                 </div>
@@ -2409,21 +2434,6 @@ function App() {
               )}
             </div>
           </div>
-
-          {/* 缩放控制 */}
-          {videoSrc && (
-            <div className="zoom-controls">
-              <button className="zoom-btn" onClick={(e) => { e.stopPropagation(); videoZoom.zoomIn(); }} title="放大">
-                <Icon.ZoomIn />
-              </button>
-              <button className="zoom-btn zoom-reset-btn" onClick={(e) => { e.stopPropagation(); videoZoom.resetZoom(); }} title="重置">
-                {Math.round(videoZoom.scale * 100)}%
-              </button>
-              <button className="zoom-btn" onClick={(e) => { e.stopPropagation(); videoZoom.zoomOut(); }} title="缩小">
-                <Icon.ZoomOut />
-              </button>
-            </div>
-          )}
 
           {/* 加载动画 */}
           {videoLoading && videoSrc && (
@@ -2608,15 +2618,6 @@ function App() {
 
         <div style={{ height: "100px" }} />
       </div>
-
-      {/* 编辑按钮 */}
-      <button
-        className={`edit-toggle ${editMode ? "active" : ""}`}
-        onClick={() => setEditMode(!editMode)}
-        title={editMode ? "退出编辑模式" : "进入编辑模式"}
-      >
-        {editMode ? <Icon.Check /> : <Icon.Edit />}
-      </button>
 
       {/* Toast */}
       {toast && <div className="toast">{toast}</div>}
